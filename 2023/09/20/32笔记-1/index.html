@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="renderer" content="webkit">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="google-site-verification" content="TZE0rZyIqLl10trYu3BWBWa1Vmz6HFwhb2OcNEK4u-s" />
+     <link rel="shortcut icon" href= /img/favicon.ico >
+    <title>
+        ikcengra的小博客
+    </title>
+    
+<link rel="stylesheet" href="/libs/highlight/styles/monokai-sublime.css">
+
+    
+<link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body id="bodyx">
+    <div class="hd posts">
+    <a href="/index.html"><i class="fa fa-home
+ replay-btn" aria-hidden="true"></i></a>
+    <div class="post-title">
+        <p>
+            32笔记_1
+        </p>
+        <hr>
+    </div>
+    <div class="post-content">
+        <h1 id="GPIO"><a href="#GPIO" class="headerlink" title="GPIO"></a>GPIO</h1><p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image1.png">{width&#x3D;”5.766666666666667in”height&#x3D;”7.841666666666667in”}</p>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image2.png" alt="52cdca0c9db56b945f777252cc40a42">{width&#x3D;”5.767361111111111in”<br>height&#x3D;”3.5229166666666667in”}</p>
+<p>&#x2F;*</p>
+<p>初始化一个IO口只需两步</p>
+<p><strong>1.先打开他的时钟</strong></p>
+<p>RCC_APB2PeriphClockCmd();&#x2F;&#x2F;或APB1，AHB，这些要查表</p>
+<p><strong>2.然后配置他的 GPIO 结构体，使用函数</strong></p>
+<p>GPIO_Init();</p>
+<p>*&#x2F;</p>
+<p>配置结构体时，会有 Mode,Pin,Speed<br>三个成员，其中Pin好理解，Speed对大多外设设置为50M就够用；需要理解的是Mode</p>
+<p>Mode<br>分为输入和输出,输入的四个模式都是字面意思，好理解；输出只有开漏（OD）和推挽（PP），这俩在学了模电之后也好理解，但还有复用开漏和复用推挽。复用和非复用的区别是：复用的输出不由CPU控制，由外设控制。<strong>（比如你需要用定时器输出pwm波，这时的输出就是由定时器外设控制，那么这时你就得用复用推挽）</strong></p>
+<p>并且要注意的是,c8t6最小系统板的 PB3<br>被JTAG占用了，不能正常的作为一个GPIO口，若想使用他得禁用JTAG功能。如何禁用网上有详细教程。</p>
+<h1 id="外部中断"><a href="#外部中断" class="headerlink" title="外部中断"></a>外部中断</h1><ol>
+<li><strong>抢占优先级高于当前中断，则可以直接中断嵌套；响应优先级高于其他中断，他会在当前中断结束后被优先响应。</strong></li>
+</ol>
+<p>4位即寄存器里的4个bit，<strong>且值越小优先级越高</strong>。</p>
+<p>32的中断响应全看优先级，不看先后。</p>
+<p>32的所有GPIO都可作外部中断，但<br><strong>“Pin”值一样的口不能同时作外部中断口。如PB3做了外部中断，则</strong><br><strong>PA3,PC3,PD3...都不能同时和他一起作外部中断了。</strong></p>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image3.png" alt="0ae69a1f21ad108440a0ab4bae73ff5">{width&#x3D;”5.7659722222222225in”<br>height&#x3D;”3.095138888888889in”}</p>
+<ol start="2">
+<li><p>外部中断9-5共用一个通道，触发时会走到同一个中断函数中，故此中断函数还需要自行判断标志位，分类写中断函数。外部中断15-10同理</p>
+</li>
+<li><p>对于所有的中断，在一套程序里他们只能有一套NVIC分组。故推荐在主程序中就先指定NVIC分组。</p>
+</li>
+<li><p><strong>配置外部中断，就是要配置好下图所有外设，让外设间线路打通。</strong></p>
+</li>
+</ol>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image4.png" alt="66c8e11d1a998ddb986ede5f04d317a">{width&#x3D;”5.767361111111111in”<br>height&#x3D;”3.417361111111111in”}</p>
+<p>&#x2F;*</p>
+<p>初始化外部中断，需要5步：</p>
+<p>1.启动rcc,注意AFIO和GPIO的时钟都要开启</p>
+<p>RCC_APBxPeriphClockCmd(RCC_APBxPeriph_GPIOx, ENABLE);</p>
+<p>RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO,ENABLE);</p>
+<p>为了程序清晰可以分别写，一个写GPIO的初始化，另一个写这个引脚的AFIO配置</p>
+<p>2.配置GPIO，选定输入模式</p>
+<p>GPIO_Init();</p>
+<p><strong>3.配置AFIO，即选定一个引脚作外部中断，注意Pin值相同的不能同时作外部中断</strong></p>
+<p>AFIO在GPIO的库中，GPIO_AFIODeInit()  &#x2F;&#x2F;是清除所有AFIO的配置，不是进行配置.</p>
+<p>void GPIO_EXTILineConfig(uint8_t GPIO_PortSource, uint8_tGPIO_PinSource);  &#x2F;&#x2F;用来配置AFIO的</p>
+<p>只用这个函数就能配置AFIO了，以下函数为江科大笔记</p>
+<p>void GPIO_PinRemapConfig(uint32_t GPIO_Remap, FunctionalState NewState); &#x2F;&#x2F;用来引脚重映射的</p>
+<p>void GPIO_PinLockConfig(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin); &#x2F;&#x2F;锁定引脚的配置，防止误更改</p>
+<p>void GPIO_EventOutputConfig(uint8_t GPIO_PortSource, uint8_t GPIO_PinSource);  &#x2F;&#x2F;AFIO的事件输出初始化</p>
+<p>void GPIO_EventOutputCmd(FunctionalState NewState); &#x2F;&#x2F; AFIO的事件输出</p>
+<p>void GPIO_ETH_MediaInterfaceConfig(uint32_t GPIO_ETH_MediaInterface);  &#x2F;&#x2F;以太网的配置</p>
+<p><strong>4.配置EXIT 触发方式</strong></p>
+<p>void EXTI_Init(EXTI_InitTypeDef* EXTI_InitStruct); &#x2F;&#x2F; EXIT初始化</p>
+<p>只用这个就可以了</p>
+<p>void EXTI_DeInit(void); &#x2F;&#x2F;清除所有EXIT初始化</p>
+<p>void EXTI_Init(EXTI_InitTypeDef* EXTI_InitStruct); &#x2F;&#x2F;EXIT初始化</p>
+<p>void EXTI_StructInit(EXTI_InitTypeDef* EXTI_InitStruct);  &#x2F;&#x2F;给EXIT初始结构体一个默认值</p>
+<p>void EXTI_GenerateSWInterrupt(uint32_t EXTI_Line); &#x2F;&#x2F;对 EXITx用软件人为产生一次外部中断</p>
+<p>FlagStatus EXTI_GetFlagStatus(uint32_t EXTI_Line);  &#x2F;&#x2F;读取状态标志位，可以读各种标志位，<u>一般用在主函数</u></p>
+<p>void EXTI_ClearFlag(uint32_t EXTI_Line); &#x2F;&#x2F;清除状态标志位，<u>一般用在主函数</u></p>
+<p>ITStatus EXTI_GetITStatus(uint32_t EXTI_Line);  &#x2F;&#x2F;读取中断标志位，只能读到中断标志位，<u>一般用在中断函数</u></p>
+<p>void EXTI_ClearITPendingBit(uint32_t EXTI_Line);  &#x2F;&#x2F;清除中断标志位，<u>一般用在中断函数</u></p>
+<p>5.配置 NVIC 中断优先级分组和 NVIC<br>初始化，注意只能有一个中断优先级分组，故推荐在主函数中先指定分组。</p>
+<p>void NVIC_PriorityGroupConfig(uint32_t NVIC_PriorityGroup);</p>
+<p>void NVIC_Init(NVIC_InitTypeDef* NVIC_InitStruct);</p>
+<p>*&#x2F;</p>
+<h1 id="定时器"><a href="#定时器" class="headerlink" title="定时器"></a>定时器</h1><p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image5.png" alt="d936746f1ad9a6786f21b2cb35c76e4">{width&#x3D;”5.764583333333333in”<br>height&#x3D;”2.379861111111111in”}</p>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image6.png" alt="fed7074ab2bb0c141a98562bae12bdd">{width&#x3D;”5.7625in”<br>height&#x3D;”2.511111111111111in”}</p>
+<p>计数器的原理是相同的，就是主频经过psc预分频后并已经使能后，cnt开始计数，记到arr设置的值后，cnt会被置为初始状态（因有向上计数和向下计数，所以初始态可能为0，也能为65535），然后触发一次中断。并且f103的主频一般是72M .</p>
+<p>对高级定时器，他还有一个重复计数器，当cnt到arr值n 次后，才会触发中断。</p>
+<p>需要注意的是，psc为0时是1分频，也就是不分频；psc为1时是2分频。<strong>也就是实际分频数比psc大1。而arr 也是从0开始， 你想让它记 10000 个数的话， 需要设置他为9999，即实际计数值也比 arr 大1</strong>。所以如果你想让他 1s进一次中断的话，可以：</p>
+<p>分 720 频， 变为0.1MHz, 即1s 能记 10000个数。<br>此时直接设置重装载值为10000，即可1s进一次中断。</p>
+<p>但实际你要 psc &#x3D; 720 - 1，arr &#x3D; 10000 -1。这其实有点麻烦。<strong>所以我建议你参数就允许填正常的720，10000；封装函数的主体内减1即可。</strong></p>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image7.png" alt="62082bcf5db049cc37da147a3c4b67c">{width&#x3D;”5.375in”<br>height&#x3D;”1.1583333333333334in”}</p>
+<p>&#x2F;*</p>
+<p>1.打开 RCC 系统时钟</p>
+<p><strong>2.选择 时钟模式，可以用内部也可以用外部</strong></p>
+<p>void TIM_InternalClockConfig(TIM_TypeDef* TIMx);</p>
+<p>void TIM_ITRxExternalClockConfig(TIM_TypeDef* TIMx, uint16_t<br>TIM_InputTriggerSource);</p>
+<p>void TIM_TIxExternalClockConfig(TIM_TypeDef* TIMx, uint16_t<br>TIM_TIxExternalCLKSource, uint16_t TIM_ICPolarity, uint16_t ICFilter);</p>
+<p>void TIM_ETRClockMode1Config(TIM_TypeDef* TIMx, uint16_t<br>TIM_ExtTRGPrescaler, uint16_t TIM_ExtTRGPolarity, uint16_t<br>ExtTRGFilter);</p>
+<p>void TIM_ETRClockMode2Config(TIM_TypeDef* TIMx, uint16_t<br>TIM_ExtTRGPrescaler, uint16_t TIM_ExtTRGPolarity, uint16_t<br>ExtTRGFilter);</p>
+<p>void TIM_ETRConfig(TIM_TypeDef* TIMx, uint16_t TIM_ExtTRGPrescaler,<br>uint16_t TIM_ExtTRGPolarity, uint16_t ExtTRGFilter);</p>
+<p>用一个即可</p>
+<p><strong>3.配置 初始化结构体，设置 psc预分频，apr自动重装，cnt等时基单元</strong></p>
+<p>void TIM_TimeBaseInit(TIM_TypeDef* TIMx, TIM_TimeBaseInitTypeDef* TIM_TimeBaseInitStruct);</p>
+<p>注意psr是预分频，period是自动重装置，他们都默认从 0开始，故你在函数里调用时需要减1。</p>
+<p><strong>3.5 手动清楚标志位</strong></p>
+<p>因为初始化结构体时，为时自动重装值的更改生效，会手动生成一个更新事件，标志位就有效了，此时再继续初始化的话，初始话一完就会进入中断函数了</p>
+<p>void TIM_ClearFlag(TIM_TypeDef* TIMx, uint16_t TIM_FLAG);</p>
+<p><strong>4.配置 中断输出控制（使能中断）</strong></p>
+<p>void TIM_ITConfig(TIM_TypeDef* TIMx, uint16_t TIM_IT, FunctionalState NewState);</p>
+<p><strong>5.指定 NVIC 优先级分组，配置 NVIC 分配优先级</strong></p>
+<p>void NVIC_PriorityGroupConfig(uint32_t NVIC_PriorityGroup);</p>
+<p>void NVIC_Init(NVIC_InitTypeDef* NVIC_InitStruct);</p>
+<p>!!!!注意整个芯片只能用同一个NVIC分组，故在模块里的优先级分组，务必要一致，可以统一在主函数里指定NVIC分组。</p>
+<p><strong>6.打开计数器</strong></p>
+<p>void TIM_Cmd(TIM_TypeDef* TIMx, FunctionalState NewState);</p>
+<p>*&#x2F;</p>
+<p>&#x2F;*</p>
+<p>一些常用的改变时基单元参数的函数</p>
+<p>void TIM_PrescalerConfig(TIM_TypeDef* TIMx, uint16_t Prescaler,<br>uint16_t TIM_PSCReloadMode);</p>
+<p><strong>单独更新预分频值 psr</strong></p>
+<p>void TIM_CounterModeConfig(TIM_TypeDef* TIMx, uint16_t TIM_CounterMode);</p>
+<p>单独更新计数模式</p>
+<p>void TIM_ARRPreloadConfig(TIM_TypeDef* TIMx, FunctionalState NewState);</p>
+<p><strong>单独配置 arr 的预装载</strong></p>
+<p>void TIM_SetCounter(TIM_TypeDef* TIMx, uint16_t Counter);</p>
+<p>手动给计数器写入一个值</p>
+<p>void TIM_SetAutoreload(TIM_TypeDef* TIMx, uint16_t Autoreload);</p>
+<p>手动给重装器写一个重装载值</p>
+<p>uint16_t TIM_GetCounter(TIM_TypeDef* TIMx);</p>
+<p>查询计数值</p>
+<p>uint16_t TIM_GetPrescaler(TIM_TypeDef* TIMx);</p>
+<p>查询分频值</p>
+<p>FlagStatus TIM_GetFlagStatus(TIM_TypeDef* TIMx, uint16_t TIM_FLAG);</p>
+<p>void TIM_ClearFlag(TIM_TypeDef* TIMx, uint16_t TIM_FLAG);</p>
+<p>ITStatus TIM_GetITStatus(TIM_TypeDef* TIMx, uint16_t TIM_IT);</p>
+<p>void TIM_ClearITPendingBit(TIM_TypeDef* TIMx, uint16_t TIM_IT);</p>
+<p>查询标志位</p>
+<p>*&#x2F;</p>
+<h1 id="定时器的输出比较-pwm-和输入捕获"><a href="#定时器的输出比较-pwm-和输入捕获" class="headerlink" title="定时器的输出比较(pwm)和输入捕获"></a>定时器的输出比较(pwm)和输入捕获</h1><h2 id="注意，一个定时器不能同时做输出比较和输入捕获"><a href="#注意，一个定时器不能同时做输出比较和输入捕获" class="headerlink" title="注意，一个定时器不能同时做输出比较和输入捕获"></a>注意，一个定时器不能同时做输出比较和输入捕获</h2><h2 id="输出比较（pwm）"><a href="#输出比较（pwm）" class="headerlink" title="输出比较（pwm）"></a>输出比较（pwm）</h2><p>&#x2F;*</p>
+<p>PWM的输出就是在之前 TIM的配置的基础上，失能中断（PWM用不上），</p>
+<p><strong>然后配置好输出比较单元（OC，即写入CCR），并且配置一个对应的pwm输出引脚即可</strong>。配置输出比较单元时会要选择输出模式：</p>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image8.png">{width&#x3D;”5.758333333333334in”<br>height&#x3D;”3.058333333333333in”}</p>
+<p>（冻结模式，输出直接就不变了；匹配时置有效&#x2F;无效都只能输出一次性的信号，不适合产生波形；匹配时电频反转可以很方便的作50%占空比的pwm，只需使ccr &#x3D; 0，即作f可调，占空比不可调的pwm波；）</p>
+<p>（PWM模式1，模式2使用的最多的。一般用模式1的向上计数就可以了，符合一般的思维方式）</p>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image9.png">{width&#x3D;”5.758333333333334in”<br>height&#x3D;”3.183333333333333in”}</p>
+<p><strong>输出比较的四个通道的初始化函数</strong></p>
+<p>void TIM_OC1Init(TIM_TypeDef* TIMx, TIM_OCInitTypeDef* TIM_OCInitStruct);</p>
+<p>void TIM_OC2Init(TIM_TypeDef* TIMx, TIM_OCInitTypeDef* TIM_OCInitStruct);</p>
+<p>void TIM_OC3Init(TIM_TypeDef* TIMx, TIM_OCInitTypeDef* TIM_OCInitStruct);</p>
+<p>void TIM_OC4Init(TIM_TypeDef* TIMx, TIM_OCInitTypeDef* TIM_OCInitStruct);</p>
+<p>然后这个函数是针对高级定时器使用的，高级定时器没他无法输出：</p>
+<p>void TIM_CtrlPWMOutputs(TIM_TypeDef* TIMx, FunctionalState NewState);</p>
+<p><strong>附上单独更改ccr值的函数</strong></p>
+<p>void TIM_SetCompare1(TIM_TypeDef* TIMx, uint16_t Compare1);</p>
+<p>*&#x2F;</p>
+<p>&#x2F;*</p>
+<p>其他用的不多的函数：</p>
+<p>void TIM_OC1PolarityConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCPolarity);</p>
+<p>void TIM_OC1NPolarityConfig(TIM_TypeDef* TIMx, uint16_t<br>TIM_OCNPolarity);</p>
+<p>单独修改输出极性，其中 NPolar 是针对高级定时器使用的</p>
+<p>void TIM_CCxCmd(TIM_TypeDef* TIMx, uint16_t TIM_Channel, uint16_t<br>TIM_CCx);</p>
+<p>void TIM_CCxNCmd(TIM_TypeDef* TIMx, uint16_t TIM_Channel, uint16_t<br>TIM_CCxN);</p>
+<p>单独修改输出使能，其中 NCmd 是针对高级定时器使用的</p>
+<p>void TIM_OCStructInit(TIM_OCInitTypeDef* TIM_OCInitStruct);</p>
+<p>给结构体一个默认值</p>
+<p>void TIM_ForcedOC1Config(TIM_TypeDef* TIMx, uint16_t TIM_ForcedAction);</p>
+<p>void TIM_ForcedOC2Config(TIM_TypeDef* TIMx, uint16_t TIM_ForcedAction);</p>
+<p>void TIM_ForcedOC3Config(TIM_TypeDef* TIMx, uint16_t TIM_ForcedAction);</p>
+<p>void TIM_ForcedOC4Config(TIM_TypeDef* TIMx, uint16_t TIM_ForcedAction);</p>
+<p>强制使通道输出高或低电平</p>
+<p>void TIM_OC1PreloadConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCPreload);</p>
+<p>void TIM_OC1FastConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCFast);</p>
+<p>void TIM_ClearOC1Ref(TIM_TypeDef* TIMx, uint16_t TIM_OCClear);</p>
+<p>三个小功能函数，第一个是预装载的，第二个是快速配置的，第三个是清除REF信号的</p>
+<p>用的不多，具体看手册</p>
+<p>*&#x2F;</p>
+<h2 id="输入捕获"><a href="#输入捕获" class="headerlink" title="输入捕获"></a>输入捕获</h2><p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image10.png">{width&#x3D;”5.766666666666667in” height&#x3D;”1.875in”}</p>
+<p>输入比较模式（IC）中，ccr寄存器仍会被用到，但不是被程序员写入。</p>
+<p>在IC模式中，通道引脚作输入，当输入一个边沿变化时（上or下可自己定），<strong>它会把cnt的值锁存到ccr寄存器中。也就是此时ccr由定时器写入值，你得到更新后的写入值后即可由自己设定的psr和arr计算频率。</strong></p>
+<p><strong>注意IC只能输入矩形波，也就是高低电平组成的信号</strong>.</p>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image11.png">{width&#x3D;”5.37384186351706in” height&#x3D;”2.85in”}</p>
+<p>测频法适合测高频信号；测周法适合测低频信号</p>
+<p>（也好理解，测频法的时间一般为1s，如果这1s内一个上升沿都没有，那你不能认为他就是0Hz吧，且如果这1s内只有1个上升沿，也不能说明他就是1HZ）</p>
+<p>（测周法的标准频率fc也不会太高，若被测信号频率太高，高于fc，那么在被测信号内两个上升沿之间，fc计不出数或计一两个数）</p>
+<p>总而言之，需要计数值N越大越好，N越大误差越小</p>
+<p>并且，由于测频法测的基本上是1s，更新较慢，测出来是一个分母较大的平均值，所以它受噪声影响不明显，值比较平滑；而测周法每隔一个被测f的周期（一般是us~ms级别的时间），它的更新很快，易受到干扰。</p>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image12.png">{width&#x3D;”5.758333333333334in”<br>height&#x3D;”2.191666666666667in”}</p>
+<p>框图中我们发现，一个通道有两个滤波+极性的输出，他们可以被输出到当前通道的预分频器，也可以输出给其他通道的预分频器</p>
+<p>这样的设计是为服务与PWMI，因为PWM的输入只能从一个引脚输入，而你要同时测出他的频率和占空比，那么你就需要两个通道。一个上升沿计算频率，一个下降沿计算占空比</p>
+<p>设置完psr后，边沿就可以触发cnt所存了；且cnt锁存后是会置标志位的，此标志位也可以引发中断。名为捕获中断，但我暂时还没找到捕获中断配置的标准库</p>
+<p>（滤波原理是，当连续N个采样周期采到的样都为高，才认定为高）</p>
+<p>（而极性就是上升沿或下降沿）</p>
+<p>而配置主从模式可以在每次锁存cnt后由硬件电路自动将cnt值清0，而不是按这个值接着计数到arr</p>
+<p>对测周法，一个TIM时，72M &#x2F; psr<br>就是标准频率fc，fc&#x2F;ccr（锁存的cnt）就是测量到的频率</p>
+<p>所以显然，如果要设置成IC，arr一般就是最大值0x11111111</p>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image13.png">{width&#x3D;”5.758333333333334in”<br>height&#x3D;”3.2666666666666666in”}</p>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image14.png">{width&#x3D;”5.733333333333333in”<br>height&#x3D;”3.2083333333333335in”}</p>
+<p>&#x2F;*</p>
+<p>步骤：</p>
+<p>1.配置IO口为输入</p>
+<p>2.初始化定时器</p>
+<p>3.配置IC单元</p>
+<p>3.5<br>若用的是CH1，CH2，就可以配置下两步来做到硬件自动清0。否则就要配置捕获中断，在捕获中断中清0cnt了</p>
+<p>4.配置主模式和触发源选择(TRGI)：选择当前用到的 1或2个 通道</p>
+<p>void TIM_SelectOutputTrigger(TIM_TypeDef* TIMx, uint16_t<br>TIM_TRGOSource); 主模式 ，一般不用配</p>
+<p>void TIM_SelectInputTrigger(TIM_TypeDef* TIMx, uint16_t<br>TIM_InputTriggerSource); 触发源</p>
+<p>5.配置从模式(TRGO)：Reset</p>
+<p>void TIM_SelectSlaveMode(TIM_TypeDef* TIMx, uint16_t TIM_SlaveMode);</p>
+<p>*&#x2F;</p>
+<p>&#x2F;*</p>
+<p>其他用得上的函数：</p>
+<p>1.设置IC单元预分频系数：</p>
+<p>void TIM_SetIC1Prescaler(TIM_TypeDef* TIMx, uint16_t TIM_ICPSC);</p>
+<p>2.读取ccr寄存器：</p>
+<p>uint16_t TIM_GetCapture1(TIM_TypeDef* TIMx);</p>
+<p>*&#x2F;</p>
+<h1 id="TIM编码器测速"><a href="#TIM编码器测速" class="headerlink" title="TIM编码器测速"></a>TIM编码器测速</h1><p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image15.png">{width&#x3D;”5.766666666666667in” height&#x3D;”3.15in”}</p>
+<p><strong>其实就是对AB相，若A项上升沿是，B项为高，就可判断他正转；B项为低，就可判断它反转</strong></p>
+<p>对这个图，上部分四个都可以认为电机在正转，下部分四个都可以认为电机再反转</p>
+<p>因此会有计数模式：只记A，只记B，以及AB都计。一般我们选择AB都记，精准一些.</p>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image16.png">{width&#x3D;”5.758333333333334in”<br>height&#x3D;”3.2916666666666665in”}</p>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image17.png">{width&#x3D;”5.758333333333334in”<br>height&#x3D;”2.8833333333333333in”}</p>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image18.png">{width&#x3D;”5.766666666666667in”<br>height&#x3D;”3.033333333333333in”}</p>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image19.png">{width&#x3D;”5.766666666666667in” height&#x3D;”3.1in”}</p>
+<p><strong>[在软件配置中可以选择通道反不反向，这是用于方便的改变极性的]{.mark}</strong></p>
+<p><strong>[比方说你让电机正转，结果cnt--了，那么你直接让一个通道的极性反向，cnt就会++了]{.mark}</strong></p>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image20.png">{width&#x3D;”5.766666666666667in”<br>height&#x3D;”2.5166666666666666in”}</p>
+<p>&#x2F;*<br>    编码器模式步骤：<br>    1.打开IO口和TIM时钟<br>    2.配置IO口为输入<br>    3.配置TIM的时基单元，一般把arr设为65535<br>    4.配置IC单元，但只有滤波器、极性是起作用的<br>    void TIM_ICStructInit(TIM_ICInitTypeDef* TIM_ICInitStruct);<br>    TIM_ICInitStruct.TIM_Channel &#x3D; TIM_Channel_1;  &#x2F;&#x2F;通道，不必多说<br>    TIM_ICInitStruct.TIM_ICFilter &#x3D; 15; &#x2F;&#x2F;滤波器采样次数N，N越大，滤波效果越强。最大为0xF<br>    TIM_ICInitStruct.TIM_ICPolarity &#x3D; TIM_ICPolarity_Rising; &#x2F;&#x2F;不反向，这个参数可以在后面编码器模式中进<br>    5.配置编码器接口模式<br>void TIM_EncoderInterfaceConfig(TIM_TypeDef* TIMx, uint16_t TIM_EncoderMode,<br>                                uint16_t TIM_IC1Polarity, uint16_t TIM_IC2Polarity);<br>    （编码器不用读完后清0，故不用配主从模式）<br>*&#x2F;</p>
+<h1 id="MPU6050与iic"><a href="#MPU6050与iic" class="headerlink" title="MPU6050与iic"></a>MPU6050与iic</h1><p>IIC通信是一种同步的通信方式，他的SCL就是时钟线，SDA是数据线（SerialClock 和Serial Data）。</p>
+<h1 id="串口通信和其他通信协议"><a href="#串口通信和其他通信协议" class="headerlink" title="串口通信和其他通信协议"></a>串口通信和其他通信协议</h1><h2 id="Usart协议"><a href="#Usart协议" class="headerlink" title="Usart协议"></a>Usart协议</h2><h3 id="通信接口"><a href="#通信接口" class="headerlink" title="通信接口"></a>通信接口</h3><p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image21.png">{width&#x3D;”5.758333333333334in”<br>height&#x3D;”3.2416666666666667in”}</p>
+<p>Usart: Tx发送，Rx接收</p>
+<p>I2C:SCL时钟，SDA数据</p>
+<p>SPI:SCLK时钟，MOSI主机发送，MISO主机接收，CS片选</p>
+<p>CAN：CAN_H,CAN_L差分数据脚，用两个差分数据表示一个数据</p>
+<p>USB：DP(D+),DM(D-)差分数据脚</p>
+<h3 id="电平标准"><a href="#电平标准" class="headerlink" title="电平标准"></a>电平标准</h3><p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image22.png">{width&#x3D;”5.766666666666667in”<br>height&#x3D;”2.2583333333333333in”}</p>
+<p>RS232的电平比较的反直觉。</p>
+<p>RS485是通过压差这样的差分信号搞得，可传输距离远。</p>
+<h3 id="数据帧格式及时序"><a href="#数据帧格式及时序" class="headerlink" title="数据帧格式及时序"></a>数据帧格式及时序</h3><p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image23.png">{width&#x3D;”5.758333333333334in”<br>height&#x3D;”3.6416666666666666in”}</p>
+<p>一个数据帧一般是10位或11位。即 起始位+数据位+（奇偶校验位）+停止位。</p>
+<p><strong>波特率：每秒发送多少位数据。115200就是1s发115200位，也就是115200bit。</strong></p>
+<p><strong>[起始位固定为0，停止位固定为1，空闲时默认为高电平。]{.mark}</strong></p>
+<p>**[数据位]{.mark}**要从低位开始发，比如你要发<br>0x0F（00001111），你发的顺序应该是从右（低位，也就是1）到左的。也就是说，应该循环右移数据。</p>
+<p>**[校验位]{.mark}**是根据当前数据位的1的个数来的，偶数个校验位为1。更好用的是<u>CRC校验，32也有CRC的外设</u>。</p>
+<h2 id="32的Usart外设"><a href="#32的Usart外设" class="headerlink" title="32的Usart外设"></a>32的Usart外设</h2><p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image24.png">{width&#x3D;”5.766666666666667in”<br>height&#x3D;”3.2916666666666665in”}</p>
+<p>一般都是选择9600或115200，8位数据为（无校验），1位停止位。</p>
+<p><strong>[支持硬件流和DMA，硬件流就是从机有一个标志位，告诉主机自己已经接收完数据，可以继续发送数据了。DMA也挺重要的，之后也要看看。]{.mark}</strong></p>
+<p>Usart1是APB2的设备，Usart2、3是APB1的设备。</p>
+<p>硬件流就是有一个RTS和一个CTS，RTS为输出，CTS为输入。RTS输出的高低电平表示自己是否可以接受新的数据，从机的RTS接主机的CTS，CTS收到RTS的有效电平信号后才发送数据。</p>
+<h3 id="框图"><a href="#框图" class="headerlink" title="框图"></a>框图</h3><p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image25.png">{width&#x3D;”5.758333333333334in”<br>height&#x3D;”3.283333333333333in”}</p>
+<p><strong>TXE和RXNE标志位指示出了现在usart外设是否准备好了发送&#x2F;接收。</strong></p>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image26.png">{width&#x3D;”5.766666666666667in”<br>height&#x3D;”3.9166666666666665in”}</p>
+<p>同样的，在数据位正中间采样，得到的结果才是最稳定可靠的。</p>
+<h3 id="波特率的计算和寄存器配置"><a href="#波特率的计算和寄存器配置" class="headerlink" title="波特率的计算和寄存器配置"></a>波特率的计算和寄存器配置</h3><p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image27.png">{width&#x3D;”5.766666666666667in”<br>height&#x3D;”3.3583333333333334in”}</p>
+<p><strong>[用库函数的话这些其实都不用管，直接写波特率是多少就可以了。]{.mark}</strong></p>
+<h2 id="重新封装Sprintf到usart中"><a href="#重新封装Sprintf到usart中" class="headerlink" title="重新封装Sprintf到usart中"></a>重新封装Sprintf到usart中</h2><p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image28.png">{width&#x3D;”5.766666666666667in”<br>height&#x3D;”3.1333333333333333in”}</p>
+<h2 id="串口打印汉字时，编译器报错的解决方法"><a href="#串口打印汉字时，编译器报错的解决方法" class="headerlink" title="串口打印汉字时，编译器报错的解决方法"></a>串口打印汉字时，编译器报错的解决方法</h2><p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image29.png">{width&#x3D;”5.766666666666667in”<br>height&#x3D;”4.033333333333333in”}</p>
+<p>如图，在魔术棒的C&#x2F;C++的对应位置写上这样一条指令即可。</p>
+<h2 id="数据包"><a href="#数据包" class="headerlink" title="数据包"></a>数据包</h2><ol>
+<li><p>为什么要使用数据包：因为在某些时候，我们都是一起发送多个数据的，比如6050，我们基本都是需要同时得到6050的三个姿态角，而不是单独得到某一个姿态角。所以我们可以规定每次6050就绪后就输出姿态角，并且姿态角总是以pitch，roll，yaw的顺序进行发送。这样的数据，就叫做数据包。</p>
+</li>
+<li><p><strong>数据包的包头包尾</strong>：继续以6050为例，虽然是以p，r，y角的顺序发送，但刚建立通信时，我们没法保证他现在给的数据就是p角。所以我们需要一个包头+包尾以作数据对齐。相当于通信的起始位和停止位。</p>
+</li>
+<li><p><strong>故数据包的构成：包头+数据+包尾</strong>：</p>
+</li>
+</ol>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image30.png">{width&#x3D;”5.766666666666667in”<br>height&#x3D;”3.7666666666666666in”}</p>
+<p><img src="/2023/09/20/32%E7%AC%94%E8%AE%B0-1/image31.png">{width&#x3D;”5.766666666666667in”<br>height&#x3D;”3.2583333333333333in”}</p>
+<ol start="3">
+<li><p>固定&#x2F;可变包长：由于包头&#x2F;尾可能与数据重复，因而出现了固定和可变包长两种形式。当会出现重复时，最好用固定包长，当不大可能出现重复时，可以使用可变包长。</p>
+</li>
+<li><p>数据包可以发送int，long，float甚至定义的struct。因为他们本质上都是8的倍数位的数据，可以用一个u8指针顺序发送。</p>
+</li>
+<li><p>**[文本数据包和hex数据包：]{.mark}**hex就是原始数据的包，文本就是经过一次编码译码的包，本质一样。但是明显hex数据包更加直接，但不方便其他人理解；文本数据包方便其他人理解，但是没那么直接。</p>
+</li>
+</ol>
+<h2 id="使用状态机接收数据包"><a href="#使用状态机接收数据包" class="headerlink" title="使用状态机接收数据包"></a>使用状态机接收数据包</h2><p><strong>[使用static前缀可声明一个只用于当前函数且只会被初始化一次的变量。]{.mark}</strong></p>
+
+    </div>
+
+    
+        <hr class="fhr">
+        <div id="vcomments"></div>
+    
+</div>
+    <div class="footer" id="footer">
+    <p><h4>Copyright © 2020 | Author: YCR-OUC | <a target="_blank" rel="noopener" href="https://github.com/Xunzhuo/hexo-theme-coder">Theme: Hexo-Coder</a></h4>
+        <label class="el-switch el-switch-blue el-switch-sm" style="vertical-align: sub;">
+            <input type="checkbox" name="switch" id="update_style">
+            <span class="el-switch-style"></span>
+        </label>
+<!--         <script type="text/javascript">
+        var cnzz_protocol = (("https:" == document.location.protocol) ? "https://" : "http://");
+        document.write(unescape("%3Cspan id='cnzz_stat_icon_1278548644'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "v1.cnzz.com/stat.php%3Fid%3D1278548644%26show%3Dpic1' type='text/javascript'%3E%3C/script%3E"));
+        </script> -->
+    </p>
+</div>
+<input type="hidden" id="web_style" value="light">
+<input type="hidden" id="valine_appid" value="NOsswOncKgc8HOxqo9oxIWlX-gzGzoHsz">
+<input type="hidden" id="valine_appKey" value="z1FihjWEbS8uIfUQdmCtK7zz">
+
+<script src="/libs/jquery.min.js"></script>
+
+
+<script src="/libs/highlight/highlight.pack.js"></script>
+
+<script src='//cdn.jsdelivr.net/npm/valine@1.3.10/dist/Valine.min.js'></script>
+
+<script src="/js/js.js"></script>
+
+<style type="text/css">
+.v * {
+    color: #698fca;
+}
+
+.v .vlist .vcard .vhead .vsys {
+    color: #3a3e4a;
+}
+
+.v .vlist .vcard .vh .vmeta .vat {
+    color: #638fd5;
+}
+
+.v .vlist .vcard .vhead .vnick {
+    color: #6ba1ff;
+}
+
+.v a {
+    color: #8696b1;
+}
+
+.v .vlist .vcard .vhead .vnick:hover {
+    color: #669bfc;
+}
+</style>
+
+    <script type="text/javascript" color="173,174,173" opacity='1' zIndex="-2" count="99" src="//cdn.bootcss.com/canvas-nest.js/1.0.0/canvas-nest.min.js"></script>
+</body>
+</html>

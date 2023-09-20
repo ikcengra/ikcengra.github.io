@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="renderer" content="webkit">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="google-site-verification" content="TZE0rZyIqLl10trYu3BWBWa1Vmz6HFwhb2OcNEK4u-s" />
+     <link rel="shortcut icon" href= /img/favicon.ico >
+    <title>
+        ikcengra的小博客
+    </title>
+    
+<link rel="stylesheet" href="/libs/highlight/styles/monokai-sublime.css">
+
+    
+<link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body id="bodyx">
+    <div class="hd posts">
+    <a href="/index.html"><i class="fa fa-home
+ replay-btn" aria-hidden="true"></i></a>
+    <div class="post-title">
+        <p>
+            智能车电磁组经验总结
+        </p>
+        <hr>
+    </div>
+    <div class="post-content">
+        <h1 id="智能车第一年——负压电磁组经验总结"><a href="#智能车第一年——负压电磁组经验总结" class="headerlink" title="智能车第一年——负压电磁组经验总结"></a>智能车第一年——负压电磁组经验总结</h1><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>智能车其实是我在大二迷茫期间阴差阳错地一次选择，当时我刚刚意识到大一时自己的想法（当时的想法：就只学习，别的时候就享受大学生活，也不用在意自己考了多少分，这些或许应该单独写一篇博客…）是多么的幼稚天真，多么地不适合自己。但当时在我完全意识到这一点时，大二上已经过去了一半了，这时我没办法加社团，找不到比赛打了，换言之就是没有切实的，可以提升自己的项目做了。当时的我比较的焦虑，之后看到学校有海赛车赛的宣讲，就火急火燎地去了。</p>
+<p>听完宣讲之后，因为姚圆认为海赛太烧钱了，并且王瑞泽学长宣讲中的“可以长期打这个比赛”让我俩有些心动，于是我俩就选择了这个比赛。然后就是入队前的培训和选拔，当时自己的表现说实话真是不敢恭维，我清楚地记得我在把车搭起来的第一天就把车上的 STM32F4 给烧了，原因跟学长排查一遍后发现应该是我把板子直接放在了车模的两个电机上，然后由于板子上有焊插件的引脚，这些引脚和电机的铁皮接触，“啪”的一下构成短路，然后 MCU 就给干烧了。我还记得当时我看见板子冒烟了，我一下子断电，然后我一想，“应该没啥问题啊”，又上电，又冒烟，而且电机不转了。然后我就懵了，主要当时我还认为应该不是烧了，断点之后自己看程序去了，学长学姐做事情做着做着闻到有烟味，我才想起来说…</p>
+<p>之后就是把车搭起来调试pid跑圈了，说实话我那个车最后都没怎么跑起来，他就只有两个状态：左打死和右打死，没了！要不是我把速度降低让他慢的像龟爬，这一圈根本跑不下去好吧。然后导致车只有两个状态的原因一是我根本不知道它四个电感对应的adc是adc通道几；二是我用了错误的pid方案，人为的设定了一个中线；三是我直接把12位ADC的差值乘以了一个大于1的Kp作为pid的返回值输出了，那他直接就是正负2k+了，而舵机的pwm范围为1350-1800，这不打死就有鬼了…</p>
+<p>总之，就算这样龟爬，我还是通过了考核。且由于经常往实验室跑，一呆就是一下午&#x2F;晚上（一是确实害怕被淘汰，没比赛打；二是确实代码写的依托答辩（现在看来）），和学长经常打照面，学长也是十分认可我，认为我是有实力的（我希望我能回应他的看好，可惜我确实是菜狗，这点其实让我蛮难受的）。然后就是决定打那个组别，我一开始就想选电磁组，一是由于我熟悉一点，毕竟怎么说都是做过了一点；二是由于害怕不能完赛，什么奖项都没得，打水漂。现在想来，感觉当时的我真是一点志气和胆量都没有…王哲涵学长当时委婉的劝过我不要选，但当时王瑞泽学长挺了我一下，然后我直接就是自信暴增啊，直接就是一股脑的选了电磁组。当时和姚圆说的既来之则安之，电磁组就电磁组，结果到后面还是后悔了hhh。</p>
+<p>（这么想我好像确实挺在意他人的看法的，不是自卑，而是在意其他人的看法。当时被挺的喜悦我现在写博客的时候都能回忆起来。我什么时候才能不在意他人的看法，不卑不亢，客观理性的看待自己呢？突然发现了自己的一个很大的缺点呢，希望能解决他吧。）</p>
+<h2 id="寒假时期的备赛"><a href="#寒假时期的备赛" class="headerlink" title="寒假时期的备赛"></a>寒假时期的备赛</h2><p>现在回想起当时大二上升大二下的备赛，我真的备赛了嘛？确实备了。效果呢？基本没有。有确实有，在那段时间我确实是建立了一些看懂库用会库的能力，但是毕竟到一半那个方案直接被废弃了。只能说，如备。</p>
+<p>当时是疫情的最终阶段，也就是国家决定放开隔离，彻底实施群体免疫策略的时候，为保证学生的安全，学校提前放了寒假。而且把期末考试移到大二下学期的开始了。</p>
+
+    </div>
+
+    
+        <hr class="fhr">
+        <div id="vcomments"></div>
+    
+</div>
+    <div class="footer" id="footer">
+    <p><h4>Copyright © 2020 | Author: YCR-OUC | <a target="_blank" rel="noopener" href="https://github.com/Xunzhuo/hexo-theme-coder">Theme: Hexo-Coder</a></h4>
+        <label class="el-switch el-switch-blue el-switch-sm" style="vertical-align: sub;">
+            <input type="checkbox" name="switch" id="update_style">
+            <span class="el-switch-style"></span>
+        </label>
+<!--         <script type="text/javascript">
+        var cnzz_protocol = (("https:" == document.location.protocol) ? "https://" : "http://");
+        document.write(unescape("%3Cspan id='cnzz_stat_icon_1278548644'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "v1.cnzz.com/stat.php%3Fid%3D1278548644%26show%3Dpic1' type='text/javascript'%3E%3C/script%3E"));
+        </script> -->
+    </p>
+</div>
+<input type="hidden" id="web_style" value="light">
+<input type="hidden" id="valine_appid" value="NOsswOncKgc8HOxqo9oxIWlX-gzGzoHsz">
+<input type="hidden" id="valine_appKey" value="z1FihjWEbS8uIfUQdmCtK7zz">
+
+<script src="/libs/jquery.min.js"></script>
+
+
+<script src="/libs/highlight/highlight.pack.js"></script>
+
+<script src='//cdn.jsdelivr.net/npm/valine@1.3.10/dist/Valine.min.js'></script>
+
+<script src="/js/js.js"></script>
+
+<style type="text/css">
+.v * {
+    color: #698fca;
+}
+
+.v .vlist .vcard .vhead .vsys {
+    color: #3a3e4a;
+}
+
+.v .vlist .vcard .vh .vmeta .vat {
+    color: #638fd5;
+}
+
+.v .vlist .vcard .vhead .vnick {
+    color: #6ba1ff;
+}
+
+.v a {
+    color: #8696b1;
+}
+
+.v .vlist .vcard .vhead .vnick:hover {
+    color: #669bfc;
+}
+</style>
+
+    <script type="text/javascript" color="173,174,173" opacity='1' zIndex="-2" count="99" src="//cdn.bootcss.com/canvas-nest.js/1.0.0/canvas-nest.min.js"></script>
+</body>
+</html>
